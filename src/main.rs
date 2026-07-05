@@ -6,6 +6,7 @@ use std::sync::Arc;
 //===============================================================
 mod fragmenting;
 mod all_ip;
+use all_ip::lookup_known_ip;
 use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
@@ -28,11 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //Create TLS-connector using our config (TLS settings) 
     let connector = TlsConnector::from(Arc::new(config));
 
+    let domain_str = "www.youtube.com";
+
+    let ip = lookup_known_ip(domain_str).expect("This site is not in data");
+
     //Get type "ServerName" | and give owned to "domain" ("try_from" crete a link)
-    let domain = ServerName::try_from("www.youtube.com")?.to_owned();
+    let domain = ServerName::try_from(domain_str)?.to_owned();
 
     //just connect
-    let stream = TcpStream::connect("www.youtube.com:443").await?;
+    let stream = TcpStream::connect(format!("{ip}:443")).await?;
 
     //
     let stream = FragmentingStream::new(stream);
