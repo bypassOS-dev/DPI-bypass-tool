@@ -5,6 +5,7 @@ use tokio_rustls::{TlsConnector, client::TlsStream};
 use std::sync::Arc;
 //===============================================================
 mod fragmenting;
+mod all_ip;
 use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
