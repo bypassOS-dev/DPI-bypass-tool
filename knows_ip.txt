@@ -1,0 +1,3 @@
+www.youtube.com = 142.251.150.4
+www.google.com = 142.250.186.68
+discord.com = 162.159.135.232

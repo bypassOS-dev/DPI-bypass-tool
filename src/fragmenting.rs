@@ -37,7 +37,7 @@ impl AsyncWrite for FragmentingStream {
             if this.fragments_sent == 0 {                        // And if this is first packet...
                 this.chunk_size = (buf.len() / 10).max(1);       // We get Size packet's piece 
             }                                                    // But if this number less that 10...
-            let n = this.chunk_size.min(buf.len());              // We get size of piece (but if 'n' less that 'chunk_size' then just get remainder)
+            let n = this.chunk_size.min(buf.len());       // We get size of piece (but if 'n' less that 'chunk_size' then just get remainder)
             this.fragments_sent += 1;                            
  
             Pin::new(&mut this.inner).poll_write(cx, &buf[..n])
