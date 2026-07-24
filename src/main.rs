@@ -72,3 +72,19 @@ async fn send_and_get<S: AsyncRead + AsyncWrite + Unpin>(tls_stream: &mut TlsStr
 
     println!("Text: {text}");
 }
+async fn resolve_via_doh() -> Result<String, Box<dyn std::error::Error>>{
+    let mut root_cert = rustls::RootCertStore::empty();
+    let native_certs = rustls_native_certs::load_native_certs()?;
+    for cert in native_certs {
+        root_cert.add(cert)?;
+    }
+
+    let config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_cert)
+        .with_no_client_auth();
+
+    let connector = TlsConnector::from(Arc::new(config));
+
+    
+    todo!()
+}
