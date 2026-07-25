@@ -1,2 +1,74 @@
-//This is the start of my first proper repository...
-//Wish me luck!
+use rand::Rng;
+use rustls::pki_types::ServerName;
+use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpStream};
+use tokio_rustls::{TlsConnector, client::TlsStream};
+use std::sync::Arc;
+//===============================================================
+mod fragmenting;
+use fragmenting::FragmentingStream;
+//===============================================================
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>>{
+    //Create an empty type of list (simple terms)
+    let mut root_cert = rustls::RootCertStore::empty();
+
+    let native_cert = rustls_native_certs::load_native_certs()?;
+
+    //get all certificates from certificates
+    for cert in native_cert {
+        root_cert.add(cert)?;
+    }
+
+    //create TLS-client settings
+    let config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_cert) // We give OUR certificates (from "root_cert")
+        .with_no_client_auth(); //Don't use client's certificates
+
+    //Create TLS-connector using our config (TLS settings) 
+    let connector = TlsConnector::from(Arc::new(config));
+
+    //Get type "ServerName" | and give owned to "domain" ("try_from" crete a link)
+    let domain = ServerName::try_from("www.youtube.com")?.to_owned();
+
+    //just connect
+    let stream = TcpStream::connect("www.youtube.com:443").await?;
+
+    //
+    let stream = FragmentingStream::new(stream);
+    //
+
+    //Runing Tls HandShake
+    let mut tls_stream = connector.connect(domain, stream).await?;
+
+    let greet = b"GET / HTTP/1.1\r\nHost: www.youtube.com\r\nConnection: close\r\n\r\n";
+
+    let mut buffer = [0u8; 1024];
+
+    loop {
+        tokio::select! {
+            _ =  send_and_get(&mut tls_stream, greet, &mut buffer) => {
+                println!("Your data was sent!");
+            }
+            _ = tokio::signal::ctrl_c() => {    //graceful shut down
+                println!("\nShutting down...");
+                tls_stream.shutdown().await?;
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+async fn send_and_get<S: AsyncRead + AsyncWrite + Unpin>(tls_stream: &mut TlsStream<S>, greet: &[u8], buffer: &mut [u8;1024]) {
+    println!("Writing some...");
+    let random = rand::thread_rng().gen_range(1..5000);
+    tokio::time::sleep(tokio::time::Duration::from_millis(random)).await;
+
+    if let Err(err) = tls_stream.write_all(greet).await {
+        eprintln!("Write error: {err}");
+    }
+        
+    let n = tls_stream.read(buffer).await.unwrap();
+    let text = String::from_utf8_lossy(&buffer[..n]);
+
+    println!("Text: {text}");
+}
