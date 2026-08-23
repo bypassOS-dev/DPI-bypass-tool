@@ -11,9 +11,10 @@ use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
-    //Create an empty type of list (simple terms)
+    //Create an empty list of certificates (simple terms)
     let mut root_cert = rustls::RootCertStore::empty();
 
+    // This string load root-certificates from OS
     let native_cert = rustls_native_certs::load_native_certs()?;
 
     //get all certificates from certificates
@@ -23,25 +24,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     //create TLS-client settings
     let config = rustls::ClientConfig::builder()
-        .with_root_certificates(root_cert) // We give OUR certificates (from "root_cert")
-        .with_no_client_auth(); //Don't use client's certificates
+        .with_root_certificates(root_cert)        // We give OUR certificates (from "root_cert")
+        .with_no_client_auth();                                                             //Don't use client's certificates
 
-    //Create TLS-connector using our config (TLS settings) 
+    //Create encryption tool
     let connector = TlsConnector::from(Arc::new(config));
 
-    let domain_str = "www.youtube.com";
+    let domain_str = "www.youtube.com";     //just example
 
-    let ip = lookup_known_ip(domain_str).expect("This site is not in data");
+    let ip = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
 
-    //Get type "ServerName" | and give owned to "domain" ("try_from" crete a link)
+    //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
 
     //just connect
     let stream = TcpStream::connect(format!("{ip}:443")).await?;
 
-    //
+    //Create a wrapper over stream
     let stream = FragmentingStream::new(stream);
-    //
+
 
     //Runing Tls HandShake
     let mut tls_stream = connector.connect(domain, stream).await?;

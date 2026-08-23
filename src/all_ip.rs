@@ -16,7 +16,7 @@ pub fn lookup_known_ip(domain: &str) -> Option<String>{
         if domain == found_domain {
             return Some(found_ip.to_string())
         }else {
-            println!("This domain is not exist!");
+            continue;
         }
     }
     None
