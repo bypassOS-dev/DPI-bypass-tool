@@ -21,6 +21,20 @@ pub fn find_SNI(buf: &[u8]) -> Option<usize>{
         let ext_type = u16::from_be_bytes([*buf.get(pos)?, *buf.get(pos + 1)?]) as usize;
         let ext_len = u16::from_be_bytes([*buf.get(pos + 2)?, *buf.get(pos + 3)?]) as usize;
         let ext_data_start = pos + 4;
+
+        if ext_type == 0x0000 {
+            let name_len_pos = ext_data_start + 3;
+            let name_len = u16::from_be_bytes([
+                *buf.get(name_len_pos)?,
+                *buf.get(name_len_pos + 1)?
+            ]) as usize;
+            
+            let name_start = name_len_pos + 2;
+
+            return Some(name_start + name_len / 2);
+        }
+
+        
     }
     todo!()
 }
