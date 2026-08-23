@@ -2,17 +2,20 @@ use tokio::net::TcpStream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+//=======================================================
+mod sni_parser;
+use sni_parser::find_sni;
+//======================================================
 
 // A wrapper around a standard TcpStream
 pub struct FragmentingStream {
-    inner: TcpStream,     //real TCP-socket
-    fragments_sent: u32,  //counter of fragments already sent
-    chunk_size: usize,    //The size of one piece in bytes
+    inner: TcpStream,         //real TCP-socket
+    first_write_done: bool,
 }
 impl FragmentingStream {
     pub fn new(inner: TcpStream) -> Self {
         inner.set_nodelay(true).expect("We couldn't turn on Nodelay");  // Tell OS to disable Nagle's algorithm
-        Self{inner, fragments_sent: 0, chunk_size: 0}                   // Return our "wrapper"
+        Self { inner, first_write_done: false }                         // Return our "wrapper"
     }
 }
 impl AsyncRead for FragmentingStream {
@@ -33,13 +36,11 @@ impl AsyncWrite for FragmentingStream {
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
  
-        if this.fragments_sent < 10 && buf.len() > 1 {           // If we sent less that 10 packet...
-            if this.fragments_sent == 0 {                        // And if this is first packet...
-                this.chunk_size = (buf.len() / 10).max(1);       // We get Size packet's piece 
-            }                                                    // But if this number less that 10...
-            let n = this.chunk_size.min(buf.len());       // We get size of piece (but if 'n' less that 'chunk_size' then just get remainder)
-            this.fragments_sent += 1;                            
- 
+        if !this.first_write_done && buf.len() > 1 {          
+            this.first_write_done = true;
+
+            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);
+            let n = split_at.min(buf.len());
             Pin::new(&mut this.inner).poll_write(cx, &buf[..n])
         } else {
             Pin::new(&mut this.inner).poll_write(cx, buf)        // If this packet is simple then just write it
