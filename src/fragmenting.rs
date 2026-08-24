@@ -4,7 +4,9 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 //=======================================================
 mod sni_parser;
+mod fake_ttl;
 use sni_parser::find_sni;
+use fake_ttl::send_fake_ttl;
 //======================================================
 
 // A wrapper around a standard TcpStream
