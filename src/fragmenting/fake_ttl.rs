@@ -1,5 +1,5 @@
 use std::net::SocketAddrV4;
-use pnet::packet::{ip::IpNextHeaderProtocols, tcp::MutableTcpPacket};
+use pnet::packet::{ip::IpNextHeaderProtocols, tcp::{self, MutableTcpPacket, TcpFlags}};
 use pnet_transport::{transport_channel, TransportChannelType::Layer3};
 
 pub fn send_fake_ttl(
@@ -24,6 +24,14 @@ pub fn send_fake_ttl(
 
     tcp_packet.set_source(my_ip.port());
     tcp_packet.set_destination(server_ip.port());
+    tcp_packet.set_sequence(seq);
+    tcp_packet.set_acknowledgement(ack);
+    tcp_packet.set_flags(TcpFlags::ACK | TcpFlags::PSH);
+    tcp_packet.set_window(64240);
+    tcp_packet.set_payload(random_text);
+
+    let checksum = tcp::ipv4_checksum(&tcp_packet.to_immutable(), my_ip.ip(), server_ip.ip());
+    tcp_packet.set_checksum(checksum);
     
     Ok(())
 }
