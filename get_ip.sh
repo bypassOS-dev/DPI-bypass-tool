@@ -23,6 +23,14 @@ else
         need_download=1
     fi
 fi
+#download list (if it's need)
+if ["need_download" -eq 1]; then
+    echo "File is old or don't download. Download fresh version..."
+    curl -o -s "$LIST_FILE" "$LIST_URL"
+else 
+    echo "File is fresh!"
+fi
+#clean old result
 
 for domain in "${domains[@]}"; do
   ip=$(dig +short "$domain" | head -n1)
