@@ -3,6 +3,7 @@ use rustls::pki_types::ServerName;
 use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpStream};
 use tokio_rustls::{TlsConnector, client::TlsStream};
 use std::sync::Arc;
+use std::process::Command;
 //===============================================================
 mod fragmenting;
 mod all_ip;
@@ -11,6 +12,10 @@ use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
+    let status = Command::new("./get_ip.sh")
+        .status()
+        .expect("[!!!]Script is fall");
+    println!("Script has ended! \nStatus: {status} \nLet's move on...");
     //Create an empty list of certificates (simple terms)
     let mut root_cert = rustls::RootCertStore::empty();
 

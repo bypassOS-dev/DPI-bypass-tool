@@ -32,6 +32,12 @@ pub fn send_fake_ttl(
 
     let checksum = tcp::ipv4_checksum(&tcp_packet.to_immutable(), my_ip.ip(), server_ip.ip());
     tcp_packet.set_checksum(checksum);
-    
+
+    let ip_len = 20 + tcp_len;
+    let mut ip_buf = vec![0u8; ip_len];
+    let mut ip_packet = MutableTcpPacket::new(&mut ip_buf)
+        .ok_or("Failed to create IP packet buffer")?;
+
+    todo!();
     Ok(())
 }
