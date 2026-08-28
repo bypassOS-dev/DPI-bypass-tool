@@ -1,7 +1,11 @@
 use std::net::SocketAddrV4;
-use pnet::packet::{Packet, ip::{IpNextHeaderProtocol, IpNextHeaderProtocols}, ipv4::MutableIpv4Packet, tcp::{self, TcpFlags, ipv4_checksum}};
+use pnet::packet::{
+    Packet,
+    ip::IpNextHeaderProtocols,
+    ipv4::{self, MutableIpv4Packet},
+    tcp::{self, MutableTcpPacket, TcpFlags},
+};
 use pnet_transport::{transport_channel, TransportChannelType::Layer3};
-use pnet::packet::ipv4::{self, MutableIpv4Packet};
 
 pub fn send_fake_ttl(
     my_ip: SocketAddrV4,
@@ -40,7 +44,7 @@ pub fn send_fake_ttl(
     let mut ip_packet = MutableIpv4Packet::new(&mut ip_buf)
         .ok_or("Failed to create IP packet buffer")?;
 
-    ip_packet.set_version(5);
+    ip_packet.set_version(4);
     ip_packet.set_header_length(5);
     ip_packet.set_next_level_protocol(IpNextHeaderProtocols::Tcp);
     ip_packet.set_total_length(ip_len as u16);
@@ -51,6 +55,9 @@ pub fn send_fake_ttl(
     ip_packet.set_source(*my_ip.ip());
     ip_packet.set_destination(*server_ip.ip());
     ip_packet.set_payload(tcp_packet.packet());
-    let ip_checksum = ipv4_checksum(&ip_packet.to_immutable());
+    let ip_checksum = ipv4::checksum(&ip_packet.to_immutable());
+    ip_packet.set_checksum(ip_checksum);
+
+    tx.send_to(ip_packet.to_immutable(), std::net::IpAddr::V4(*server_ip.ip()))?;
     Ok(())
 }
