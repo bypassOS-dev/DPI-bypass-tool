@@ -1,5 +1,5 @@
 use std::net::SocketAddrV4;
-use pnet::packet::{ip::IpNextHeaderProtocols, tcp::{self, MutableTcpPacket, TcpFlags}};
+use pnet::packet::{ip::IpNextHeaderProtocols, ipv4::MutableIpv4Packet, tcp::{self, MutableTcpPacket, TcpFlags}};
 use pnet_transport::{transport_channel, TransportChannelType::Layer3};
 
 pub fn send_fake_ttl(
@@ -28,6 +28,7 @@ pub fn send_fake_ttl(
     tcp_packet.set_acknowledgement(ack);
     tcp_packet.set_flags(TcpFlags::ACK | TcpFlags::PSH);
     tcp_packet.set_window(64240);
+    tcp_packet.set_data_offset(5);
     tcp_packet.set_payload(random_text);
 
     let checksum = tcp::ipv4_checksum(&tcp_packet.to_immutable(), my_ip.ip(), server_ip.ip());
@@ -35,9 +36,14 @@ pub fn send_fake_ttl(
 
     let ip_len = 20 + tcp_len;
     let mut ip_buf = vec![0u8; ip_len];
-    let mut ip_packet = MutableTcpPacket::new(&mut ip_buf)
+    let mut ip_packet = MutableIpv4Packet::new(&mut ip_buf)
         .ok_or("Failed to create IP packet buffer")?;
 
-    todo!();
+    ip_packet.set_version(5);
+    ip_packet.set_header_length(5);
+    ip_packet.set_total_length(ip_len as u16);
+    ip_packet.set_identification(0x1234);
+    ip_packet.set_flags(0);
+    ip_packet.set_fragment_offset(0);
     Ok(())
 }
