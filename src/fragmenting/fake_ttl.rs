@@ -37,17 +37,17 @@ pub fn send_fake_ttl(
     tcp_packet.set_data_offset(5);                        // Say to recipient where start payload (5 piece of 4 bytes)
     tcp_packet.set_payload(random_text);                 // Write payload after TCP-header (20 bytes)
 
-    let checksum = tcp::ipv4_checksum(&tcp_packet.to_immutable(), my_ip.ip(), server_ip.ip());
-    tcp_packet.set_checksum(checksum);
+    let checksum = tcp::ipv4_checksum(&tcp_packet.to_immutable(), my_ip.ip(), server_ip.ip()); // Calculate checksum
+    tcp_packet.set_checksum(checksum);         // write checksum to TCP-packet
 
-    let ip_len = 20 + tcp_len;
+    let ip_len = 20 + tcp_len;   
     let mut ip_buf = vec![0u8; ip_len];
     let mut ip_packet = MutableIpv4Packet::new(&mut ip_buf)
         .ok_or("Failed to create IP packet buffer")?;
 
     ip_packet.set_version(4);
     ip_packet.set_header_length(5);
-    ip_packet.set_next_level_protocol(IpNextHeaderProtocols::Tcp);
+    ip_packet.set_next_level_protocol(IpNextHeaderProtocols::Tcp); // Inside this packet found TCP
     ip_packet.set_total_length(ip_len as u16);
     ip_packet.set_identification(0x1234);
     ip_packet.set_flags(0);
