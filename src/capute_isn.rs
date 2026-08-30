@@ -4,7 +4,7 @@ use pnet::packet::{
 };
 use pnet_transport::{TransportChannelType::Layer3, tcp_packet_iter, transport_channel};
 
-pub fn capute_isn(server_some: SocketAddrV4, my_port: u16) -> Result<(u32, u32), Box<dyn std::error::Error>> {
+pub fn capute_isn(server_some: SocketAddrV4, my_port: u16) -> Result<(u32, u32), Box<dyn std::error::Error + Send + Sync>> {
     let (_tx, mut rx) = transport_channel(2048, Layer3(IpNextHeaderProtocols::Tcp))?;
     let mut iter = tcp_packet_iter(&mut rx);
     loop {
