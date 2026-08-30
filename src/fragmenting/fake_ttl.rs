@@ -1,8 +1,8 @@
 use std::net::SocketAddrV4;
 use pnet::packet::{
-    Packet, ip::{IpNextHeaderProtocol, IpNextHeaderProtocols}, ipv4::{self, MutableIpv4Packet}, tcp::{self, MutableTcpPacket, TcpFlags},
+    Packet, ip::{IpNextHeaderProtocols}, ipv4::{self, MutableIpv4Packet}, tcp::{self, MutableTcpPacket, TcpFlags},
 };
-use pnet_transport::{TransportChannelType::Layer3, tcp_packet_iter, transport_channel};
+use pnet_transport::{TransportChannelType::Layer3, transport_channel};
 
 pub fn send_fake_ttl(
     my_ip: SocketAddrV4,
@@ -58,21 +58,4 @@ pub fn send_fake_ttl(
 
     tx.send_to(ip_packet.to_immutable(), std::net::IpAddr::V4(*server_ip.ip()))?;
     Ok(())
-}
-fn capute_isn(server_some: SocketAddrV4, my_port: u16) -> Result<(u32, u32), Box<dyn std::error::Error>> {
-    let (_tx, mut rx) = transport_channel(2048, Layer3(IpNextHeaderProtocols::Tcp))?;
-    let mut iter = tcp_packet_iter(&mut rx);
-    loop {
-        let (packet, addr) = iter.next()?;
-
-        let is_from_server = addr == std::net::IpAddr::V4(*server_some.ip());
-        let is_right_port = packet.get_source() == server_some.port();
-        let is_for_me = packet.get_destination() == my_port;
-        let is_syn_ack = packet.get_flags() == (TcpFlags::ACK | TcpFlags::ACK);
-
-        if is_from_server && is_right_port && is_for_me && is_syn_ack {
-            
-        }
-    }
-    todo!()
 }
