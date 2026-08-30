@@ -13,7 +13,7 @@ use all_ip::lookup_known_ip;
 use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>{
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     let status = Command::new("./get_ip.sh")
         .status()
         .expect("[!!!]Script is fall");
@@ -52,15 +52,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");
     let server_some = SocketAddrV4::new(ip, my_port);
 
-    // Start to sniffing packets for find seq and ack
-    let (sequence, acknowlegement) = capute_isn(server_some, my_port);
+    let handle = tokio::task::spawn_blocking(move || {
+        // Start to sniffing packets for find seq and ack
+        capute_isn(server_some, my_port)
+    });
 
     //just connect
-    let stream = socket.connect(format!("{ip}:443").into()).await?;
+    let stream = socket.connect(format!("{ip}:443").parse()?).await?;
 
+    let (sequence, acknowlegement) = handle.await??;
+    
     //Create a wrapper over stream
     let stream = FragmentingStream::new(stream);
-
 
     //Runing Tls HandShake
     let mut tls_stream = connector.connect(domain, stream).await?;
