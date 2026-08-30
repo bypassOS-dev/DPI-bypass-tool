@@ -1,12 +1,14 @@
 use rand::Rng;
 use rustls::pki_types::ServerName;
-use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpStream};
+use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket, TcpStream}};
 use tokio_rustls::{TlsConnector, client::TlsStream};
-use std::sync::Arc;
+use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use std::process::Command;
 //===============================================================
 mod fragmenting;
 mod all_ip;
+mod capute_isn;
+use capute_isn::capute_isn;
 use all_ip::lookup_known_ip;
 use fragmenting::FragmentingStream;
 //===============================================================
@@ -35,15 +37,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //Create encryption tool
     let connector = TlsConnector::from(Arc::new(config));
 
-    let domain_str = "www.youtube.com";     //just example
-
-    let ip = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
+    let domain_str = "youtube.com";     //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
 
+    let socket = TcpSocket::new_v4()?;
+
+    socket.bind("0.0.0.0:0".parse()?)?;
+
+    let my_port = socket.local_addr()?.port();
+
+    let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
+    let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");
+    let server_some = SocketAddrV4::new(ip, my_port);
+
+    // Start to sniffing packets for find seq and ack
+    let (sequence, acknowlegement) = capute_isn(server_some, my_port);
+
     //just connect
-    let stream = TcpStream::connect(format!("{ip}:443")).await?;
+    let stream = socket.connect(format!("{ip}:443").into()).await?;
 
     //Create a wrapper over stream
     let stream = FragmentingStream::new(stream);
