@@ -1,4 +1,5 @@
 use tokio::net::TcpStream;
+use std::net::SocketAddrV4;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -13,11 +14,33 @@ use fake_ttl::send_fake_ttl;
 pub struct FragmentingStream {
     inner: TcpStream,          //real TCP-socket
     first_write_done: bool,   // Just checking - is this packet the first one?
+    my_ip: SocketAddrV4,
+    server_ip: SocketAddrV4, 
+    seq: u32,
+    ack: u32,
+    ttl: u8,
+    random_text: &'static [u8],
 }
 impl FragmentingStream {
-    pub fn new(inner: TcpStream) -> Self {
+    pub fn new(inner: TcpStream,
+        my_ip: SocketAddrV4, 
+        server_ip: SocketAddrV4, 
+        seq: u32, 
+        ack: u32, 
+        ttl: u8, 
+        random_text: &'static[u8]) -> Self {
+
         inner.set_nodelay(true).expect("We couldn't turn off Nodelay");  // Tell OS to disable Nagle's algorithm
-        Self { inner, first_write_done: false }                         // Return our "wrapper"
+        Self { 
+            inner, 
+            first_write_done: false,
+            my_ip,
+            server_ip, 
+            seq,
+            ack,
+            ttl,
+            random_text,
+        }                         // Return our "wrapper"
     }                                                                  
 }                                                                 
 impl AsyncRead for FragmentingStream {
@@ -44,8 +67,10 @@ impl AsyncWrite for FragmentingStream {
             let split_at = find_sni(buf).unwrap_or(buf.len() / 2);  //Split domain or if hapens mistakes half of bufer
             let n = split_at.min(buf.len());                               //If somehow 1 piece more that all packet (It's error) then we              
                                                                                  //                                          just return half of packet
-            Pin::new(&mut this.inner).poll_write(cx, &buf[..n])        // Sending that a piece
+            Pin::new(&mut this.inner).poll_write(cx, &buf[..n]);      // Sending that a piece
+            send_fake_ttl(self.my_ip, self.server_ip, self.seq, self.ack, self.ttl, self.random_text)
         } else {                                                              //
+            this.first_write_done = false; 
             Pin::new(&mut this.inner).poll_write(cx, buf)           // If this packet is simple then just write it
         }
     }
