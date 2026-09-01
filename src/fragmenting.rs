@@ -3,6 +3,8 @@ use std::net::SocketAddrV4;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 //=======================================================
 mod sni_parser;
 mod fake_ttl;
@@ -19,7 +21,6 @@ pub struct FragmentingStream {
     seq: u32,
     ack: u32,
     ttl: u8,
-    random_text: &'static [u8],
 }
 impl FragmentingStream {
     pub fn new(inner: TcpStream,
@@ -27,8 +28,7 @@ impl FragmentingStream {
         server_ip: SocketAddrV4, 
         seq: u32, 
         ack: u32, 
-        ttl: u8, 
-        random_text: &'static[u8]) -> Self {
+        ttl: u8) -> Self {
 
         inner.set_nodelay(true).expect("We couldn't turn off Nodelay");  // Tell OS to disable Nagle's algorithm
         Self { 
@@ -39,7 +39,6 @@ impl FragmentingStream {
             seq,
             ack,
             ttl,
-            random_text,
         }                         // Return our "wrapper"
     }                                                                  
 }                                                                 
@@ -62,13 +61,29 @@ impl AsyncWrite for FragmentingStream {
         let this = self.get_mut();
  
         if !this.first_write_done && buf.len() > 1 {                                   //If this packet is the first one... 
-            this.first_write_done = true;                                             //We are changing the state of "first_write_done" to true
+                                                                                      //We are changing the state of "first_write_done" to true
                                                                                      //
-            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);  //Split domain or if hapens mistakes half of bufer
-            let n = split_at.min(buf.len());                               //If somehow 1 piece more that all packet (It's error) then we              
-                                                                                 //                                          just return half of packet
-            Pin::new(&mut this.inner).poll_write(cx, &buf[..n]);      // Sending that a piece
-            send_fake_ttl(self.my_ip, self.server_ip, self.seq, self.ack, self.ttl, self.random_text)
+            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);                  //Split domain or if hapens mistakes half of bufer
+            let n = split_at.min(buf.len());                                       //If somehow 1 piece more that all packet (It's error) then we              
+                                                                                  //                                         just return half of packet
+            match Pin::new(&mut this.inner).poll_write(cx, &buf[..n]) {         // Sending that a piece
+                Poll::Ready(Ok(n)) => {
+                    this.first_write_done = true;  
+                    //Create random text
+                    let rng = thread_rng();
+
+                    if let Err(e) = send_fake_ttl(this.my_ip, this.server_ip, this.seq, this.ack, this.ttl, random_text) {
+                        eprintln!("[!!!]Falled to send fake packet");                        
+                    };
+                    return Poll::Ready(Ok(n));
+                },
+                Poll::Pending => {
+                    return Poll::Pending;
+                },
+                Poll::Ready(Err(e)) => {
+                    return Poll::Ready(Err(e));
+                },
+            }      
         } else {                                                              //
             this.first_write_done = false; 
             Pin::new(&mut this.inner).poll_write(cx, buf)           // If this packet is simple then just write it
