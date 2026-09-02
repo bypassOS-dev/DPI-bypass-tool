@@ -48,8 +48,11 @@ impl AsyncRead for FragmentingStream {
         cx: &mut Context<'_>,         //This "Context" is "waker" 
         buf: &mut ReadBuf<'_>        //Just buffer for data
     ) -> Poll<std::io::Result<()>>{ 
+        eprintln!("[FragmentingStream] poll_read called");
         let this = self.get_mut();
-        Pin::new(&mut this.inner).poll_read(cx, buf)
+        let result = Pin::new(&mut this.inner).poll_read(cx, buf);
+        eprintln!("[FragmentingStream] poll_read result: {:?}", result.is_ready());
+        result
     }
 }
 impl AsyncWrite for FragmentingStream {
@@ -58,21 +61,27 @@ impl AsyncWrite for FragmentingStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
+        eprintln!("[FragmentingStream] poll_write is called, buf.len()={}", buf.len());
         let this = self.get_mut();
  
         if !this.first_write_done && buf.len() > 1 {                                   //If this packet is the first one... 
                                                                                       //We are changing the state of "first_write_done" to true
                                                                                      //
-            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);                  //Split domain or if hapens mistakes half of bufer
-            let n = split_at.min(buf.len());                                       //If somehow 1 piece more that all packet (It's error) then we              
-                                                                                  //                                         just return half of packet
-            match Pin::new(&mut this.inner).poll_write(cx, &buf[..n]) {         // Sending that a piece
+            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);  //Split domain or if hapens mistakes half of bufer
+            let n = split_at.min(buf.len());                                //If somehow 1 piece more that all packet (It's error) then we              
+                                                                                 //                                          just return half of packet
+            match Pin::new(&mut this.inner).poll_write(cx, &buf[..n]) {// Sending that a piece
                 Poll::Ready(Ok(n)) => {
                     this.first_write_done = true;  
                     //Create random text
-                    let rng = thread_rng();
+                    let mut rng = thread_rng();
+                    let random_num = rng.gen_range(10..30);
 
-                    if let Err(e) = send_fake_ttl(this.my_ip, this.server_ip, this.seq, this.ack, this.ttl, random_text) {
+                    let random_text: Vec<u8> = (0..random_num)
+                        .map(|_| rng.sample(Alphanumeric))
+                        .collect();
+
+                    if let Err(e) = send_fake_ttl(this.my_ip, this.server_ip, this.seq, this.ack, this.ttl, &random_text) {
                         eprintln!("[!!!]Falled to send fake packet");                        
                     };
                     return Poll::Ready(Ok(n));
