@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #===Get all blocked domain. for example in russia ===
-LIST_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Russia/inside-raw.lst"
+LIST_URL="https://raw.githubusercontent.com/bypassOS-dev/qw/refs/heads/main/list_of_block_domain"
 LIST_FILE="knows_ip.txt"
 LIST_IP="result.txt"
 
@@ -10,23 +10,22 @@ if ! command -v dig &> /dev/null; then
     echo "dig is not found. install it..."
     sudo apt-get update && sudo apt-get install -y dnsutils
 fi
-#
-need_download=0
-if [ ! -f "$LIST_FILE" ]; then
-    #It's mean that file doesn't exist. Download:
-    need_download=1
-fi
-#download list (if it's need)
-if [ "$need_download" -eq 1 ]; then
-    echo "File is don't download. Download fresh version..."
-    curl -s -o "$LIST_FILE" "$LIST_URL"
-else 
-    echo "File is exist!"
-fi
-#clean old result
-> "$LIST_IP"
+
+# If file is exist then just remove it a download again
+echo "Downloading fresh domain list..."
+rm -f "$LIST_FILE" "$LIST_IP"
+curl -s -o "$LIST_FILE" "$LIST_URL"
 
 while read -r domain; do
+    if [[ -z "$domain" || "$domain" == .* ]]; then
+        continue
+    fi
+
     ip=$(dig +short "$domain" | head -n1)
-    echo "$domain = $ip" >> "$LIST_IP"
+
+    if [ -n "$ip" ]; then
+        echo "$domain = $ip" >> "$LIST_IP"
+    fi
 done < "$LIST_FILE"
+
+echo -e "\e[30;42mScript finished. Done!\e[0m"
