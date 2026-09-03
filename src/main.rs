@@ -1,6 +1,6 @@
 use rand::Rng;
 use rustls::pki_types::ServerName;
-use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket, TcpStream}};
+use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket}};
 use tokio_rustls::{TlsConnector, client::TlsStream};
 use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use std::process::Command;
@@ -14,10 +14,12 @@ use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
+    // Run bash script
     let status = Command::new("./get_ip.sh")
         .status()
         .expect("[!!!]Script is fall");
     println!("Script has ended! \nStatus: {status} \nLet's move on...");
+
     //Create an empty list of certificates (simple terms)
     let mut root_cert = rustls::RootCertStore::empty();
 
@@ -28,48 +30,73 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     for cert in native_cert {
         root_cert.add(cert)?;
     }
+    println!("1");
 
     //create TLS-client settings
     let config = rustls::ClientConfig::builder()
         .with_root_certificates(root_cert)        // We give OUR certificates (from "root_cert")
         .with_no_client_auth();                                                             //Don't use client's certificates
+    println!("2");
 
     //Create encryption tool
     let connector = TlsConnector::from(Arc::new(config));
+    println!("3");
 
-    let domain_str = "youtube.com";     //just example
+    let domain_str: &str = "example.com";    //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
 
     let socket = TcpSocket::new_v4()?;
+    println!("4");
 
     socket.bind("0.0.0.0:0".parse()?)?;
+    println!("5");
 
     let my_port = socket.local_addr()?.port();
 
-    let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
-    let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");
-    let server_some = SocketAddrV4::new(ip, my_port);
+    //let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
+    //let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");
+    //let _server_some = SocketAddrV4::new(ip, 443);
+    let server_some = SocketAddrV4::new(Ipv4Addr::new(104, 20, 23, 154), 443);  // example.com 
+    println!("6");
 
+    eprintln!("My port: {my_port}");
     let handle = tokio::task::spawn_blocking(move || {
+        println!("7");
         // Start to sniffing packets for find seq and ack
         capute_isn(server_some, my_port)
     });
+    std::thread::sleep(std::time::Duration::from_millis(2000));  // because capute_sni can't keep up   
+    println!("8");
 
     //just connect
-    let stream = socket.connect(format!("{ip}:443").parse()?).await?;
+    let stream = socket.connect(std::net::SocketAddr::V4(server_some)).await?;  
+    println!("9");
 
     let (sequence, acknowlegement) = handle.await??;
+    println!("10");
     
+    let ip_adrr = stream.local_addr()?.ip();
+    let my_ip = match ip_adrr {
+        std::net::IpAddr::V4(addr) => addr,
+        std::net::IpAddr::V6(_) => panic!("Ipv6 while is doesn't support!"),
+    };
+    println!("11");
+    let my_ip = SocketAddrV4::new(my_ip, my_port);
     //Create a wrapper over stream
-    let stream = FragmentingStream::new(stream);
-
+    let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 3);
+    println!("12");
     //Runing Tls HandShake
     let mut tls_stream = connector.connect(domain, stream).await?;
-
-    let greet = b"GET / HTTP/1.1\r\nHost: www.youtube.com\r\nConnection: close\r\n\r\n";
-
+    println!("13");
+    let greet = b"GET / HTTP/1.1\r\n\
+    Host: example.com\r\n\
+    User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0\r\n\
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n\
+    Accept-Language: en-US,en;q=0.5\r\n\
+    Accept-Encoding: identity\r\n\
+    Connection: close\r\n\r\n";
     let mut buffer = [0u8; 1024];
 
     loop {
