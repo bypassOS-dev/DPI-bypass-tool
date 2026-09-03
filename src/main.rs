@@ -2,7 +2,7 @@ use rand::Rng;
 use rustls::pki_types::ServerName;
 use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket}};
 use tokio_rustls::{TlsConnector, client::TlsStream};
-use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
+use std::{io::Write, net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use std::process::Command;
 //===============================================================
 mod fragmenting;
@@ -18,50 +18,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     let status = Command::new("./get_ip.sh")
         .status()
         .expect("[!!!]Script is fall");
-    println!("Script has ended! \nStatus: {status} \nLet's move on...");
-
+    println!("Status = {status}\nLet's move on...");
+    progress("[1/] Loading sertificates...");
     //Create an empty list of certificates (simple terms)
     let mut root_cert = rustls::RootCertStore::empty();
-
+    
     // This string load root-certificates from OS
     let native_cert = rustls_native_certs::load_native_certs()?;
-
+    progress("[2/] Sorting sertificates...");
     //get all certificates from certificates
     for cert in native_cert {
         root_cert.add(cert)?;
     }
-    println!("1");
 
+    progress("[3/] Creating Tls-client settings...");
     //create TLS-client settings
     let config = rustls::ClientConfig::builder()
         .with_root_certificates(root_cert)        // We give OUR certificates (from "root_cert")
         .with_no_client_auth();                                                             //Don't use client's certificates
-    println!("2");
 
+    progress("[4/] Creating encryption tool...");
     //Create encryption tool
     let connector = TlsConnector::from(Arc::new(config));
-    println!("3");
 
+    progress("[5/] To seting domain...");
     let domain_str: &str = "example.com";    //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
 
+    progress("[6/] Creating new socket...");
+    // Create a new, not yet conected to anything socket (for Ipv4)
     let socket = TcpSocket::new_v4()?;
-    println!("4");
 
+    progress("[7/] Reserving random port...");
+    // Ask OS reserve random port
     socket.bind("0.0.0.0:0".parse()?)?;
-    println!("5");
 
+    progress("[8/] Geting port...");
+    // Get port
     let my_port = socket.local_addr()?.port();
 
-    //let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
-    //let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");
-    //let _server_some = SocketAddrV4::new(ip, 443);
-    let server_some = SocketAddrV4::new(Ipv4Addr::new(104, 20, 23, 154), 443);  // example.com 
-    println!("6");
+    progress("[9/] Finding ip in fresh list...");
+    let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
+    let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");                 // parsing string to Ipv4Addr type
+    let server_some = SocketAddrV4::new(ip, 443);           
+    
+    progress("[10/] Runing additional stream...");
 
-    eprintln!("My port: {my_port}");
     let handle = tokio::task::spawn_blocking(move || {
         println!("7");
         // Start to sniffing packets for find seq and ack
@@ -126,4 +130,8 @@ async fn send_and_get<S: AsyncRead + AsyncWrite + Unpin>(tls_stream: &mut TlsStr
     let text = String::from_utf8_lossy(&buffer[..n]);
 
     println!("Text: {text}");
+}
+fn progress(step: &str) {
+    print!("\r\x1b[2K{}", step);
+    std::io::stdout().flush().unwrap();
 }
