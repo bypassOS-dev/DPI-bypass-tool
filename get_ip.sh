@@ -20,12 +20,14 @@ while read -r domain; do
     if [[ -z "$domain" || "$domain" == .* ]]; then
         continue
     fi
-
-    ip=$(dig +short "$domain" | head -n1)
-
-    if [ -n "$ip" ]; then
-        echo "$domain = $ip" >> "$LIST_IP"
-    fi
+    (
+        ip=$(dig +time=2 +tries=1 +short "$domain" | head -n1)
+        if [ -n "$ip" ]; then
+            echo "$domain = $ip" >> "$LIST_IP"
+        fi
+    ) &
 done < "$LIST_FILE"
+
+wait
 
 echo -e "\e[30;42mScript finished. Done!\e[0m"
