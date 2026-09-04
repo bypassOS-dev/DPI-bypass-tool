@@ -1,9 +1,10 @@
+use colored::Colorize;
 use rand::Rng;
 use rustls::pki_types::ServerName;
 use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket}};
 use tokio_rustls::{TlsConnector, client::TlsStream};
-use std::{io::Write, net::{Ipv4Addr, SocketAddrV4}, process::ExitStatus, sync::Arc};
-use std::process::Command;
+use std::{io::Write, net::{Ipv4Addr, SocketAddrV4}, process::{ExitStatus}, sync::Arc};
+use tokio::process::Command;
 //===============================================================
 mod fragmenting;
 mod all_ip;
@@ -16,11 +17,21 @@ use fragmenting::FragmentingStream;
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
 
     // Run bash script
-    let status = Command::new("./get_ip.sh")
-        .status()
-        .expect("[!!!]Script is fall");
-    println!("Status = {status}\nLet's move on...");
-
+    tokio::select! {
+        status = run_bash() => {
+            println!("Status = {status}\nLet's move on...");
+        },
+        _ = tokio::signal::ctrl_c() => {
+            Command::new("./delete_file.sh")
+                .status()
+                .await
+                .unwrap_or_else(|_| {
+                    eprintln!("\n{}", "Error delete of file. Remove knows_ip.txt and result.txt please <3".black().on_red());
+                    std::process::exit(0);
+                });
+        },
+    }
+    
     progress("[1/18] Loading sertificates...");
     //Create an empty list of certificates (simple terms)
     let mut root_cert = rustls::RootCertStore::empty();
@@ -144,7 +155,8 @@ async fn send_and_get<S: AsyncRead + AsyncWrite + Unpin>(tls_stream: &mut TlsStr
 async fn run_bash() -> ExitStatus{
     let status = Command::new("./get_ip.sh")
         .status()
-        .expect("[!!!]Script is fall");
+        .await
+        .expect("[!!!]Script is fall. I'm sorry but maybe someone change a bash script.");
     status
 }
 
