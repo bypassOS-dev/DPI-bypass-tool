@@ -39,7 +39,7 @@ impl FragmentingStream {
             seq,
             ack,
             ttl,
-        }                         // Return our "wrapper"
+        }      // Return our "wrapper"
     }                                                                  
 }                                                                 
 impl AsyncRead for FragmentingStream {
@@ -48,10 +48,8 @@ impl AsyncRead for FragmentingStream {
         cx: &mut Context<'_>,         //This "Context" is "waker" 
         buf: &mut ReadBuf<'_>        //Just buffer for data
     ) -> Poll<std::io::Result<()>>{ 
-        eprintln!("[FragmentingStream] poll_read called");
         let this = self.get_mut();
         let result = Pin::new(&mut this.inner).poll_read(cx, buf);
-        eprintln!("[FragmentingStream] poll_read result: {:?}", result.is_ready());
         result
     }
 }
@@ -61,7 +59,6 @@ impl AsyncWrite for FragmentingStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        eprintln!("[FragmentingStream] poll_write is called, buf.len()={}", buf.len());
         let this = self.get_mut();
  
         if !this.first_write_done && buf.len() > 1 {                                   //If this packet is the first one... 
@@ -82,7 +79,7 @@ impl AsyncWrite for FragmentingStream {
                         .collect();
 
                     if let Err(e) = send_fake_ttl(this.my_ip, this.server_ip, this.seq, this.ack, this.ttl, &random_text) {
-                        eprintln!("[!!!]Falled to send fake packet");                        
+                        eprintln!("[!!!]Falled to send fake packet: {e}");                        
                     };
                     return Poll::Ready(Ok(n));
                 },
@@ -93,7 +90,7 @@ impl AsyncWrite for FragmentingStream {
                     return Poll::Ready(Err(e));
                 },
             }      
-        } else {                                                              //
+        } else {                                                              
             this.first_write_done = false; 
             Pin::new(&mut this.inner).poll_write(cx, buf)           // If this packet is simple then just write it
         }
