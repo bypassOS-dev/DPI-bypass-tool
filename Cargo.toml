@@ -1,5 +1,5 @@
 [package]
-name = "tls_client"
+name = "DPI_bypass_tool"
 version = "0.1.0"
 edition = "2024"
 
@@ -13,3 +13,4 @@ rustls-native-certs = "0.7"
 pnet = "0.35"
 pnet_transport = "0.35"
 socket2 = "0.5"
+colored = "2"

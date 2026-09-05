@@ -1,6 +1,6 @@
 use std::fs;
 pub fn lookup_known_ip(domain: &str) -> Option<String>{
-    let content =fs::read_to_string("knows_ip.txt").ok()?;
+    let content = fs::read_to_string("result.txt").ok()?;
     for line in content.lines() {
         let line = line.trim();
 
