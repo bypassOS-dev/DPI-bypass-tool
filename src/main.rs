@@ -1,21 +1,25 @@
 use colored::Colorize;
-use rand::Rng;
 use rustls::pki_types::ServerName;
-use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::{TcpSocket}};
-use tokio_rustls::{TlsConnector, client::TlsStream};
-use std::{io::Write, net::{Ipv4Addr, SocketAddrV4}, process::{ExitStatus}, sync::Arc};
+use tokio::{io::{AsyncWriteExt}, net::{TcpSocket}};
+use tokio_rustls::{TlsConnector};
+use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use tokio::process::Command;
 //===============================================================
 mod fragmenting;
 mod all_ip;
 mod capute_isn;
+mod help_function;
+use help_function::{progress, send_and_get, run_bash};
 use capute_isn::capute_isn;
 use all_ip::lookup_known_ip;
 use fragmenting::FragmentingStream;
 //===============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
-
+    let ttl = std::env::args()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3);
     // Run bash script
     tokio::select! {
         status = run_bash() => {
@@ -43,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     for cert in native_cert {
         root_cert.add(cert)?;
     }
-
+    
     progress("[3/18] Creating Tls-client settings...");
     //create TLS-client settings
     let config = rustls::ClientConfig::builder()
@@ -55,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     let connector = TlsConnector::from(Arc::new(config));
 
     progress("[5/18] To seting domain...");
-    let domain_str: &str = "example.com";    //just example
+    let domain_str: &str = "youtube.com";    //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
@@ -106,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
 
     progress("[16/18] To waping our stream...");
     //Create a wrapper over stream
-    let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 3);
+    let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, ttl);
 
     progress("[17/18] Runing Tls-handshake...");
     //Runing Tls HandShake
@@ -114,7 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
 
     progress("[18/18] To preparing the https request");
     let greet = b"GET / HTTP/1.1\r\n\
-    Host: example.com\r\n\
+    Host: youtube.com\r\n\
     User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0\r\n\
     Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n\
     Accept-Language: en-US,en;q=0.5\r\n\
@@ -135,32 +139,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
         }
     }
     Ok(())
-}
-
-async fn send_and_get<S: AsyncRead + AsyncWrite + Unpin>(tls_stream: &mut TlsStream<S>, greet: &[u8], buffer: &mut [u8;1024]) {
-    println!("Writing some...");
-    let random = rand::thread_rng().gen_range(1..5000);
-    tokio::time::sleep(tokio::time::Duration::from_millis(random)).await;
-
-    if let Err(err) = tls_stream.write_all(greet).await {
-        eprintln!("Write error: {err}");
-    }
-        
-    let n = tls_stream.read(buffer).await.unwrap();
-    let text = String::from_utf8_lossy(&buffer[..n]);
-
-    println!("Text: \x1b[4m{text}\x1b[0m");
-}
-
-async fn run_bash() -> ExitStatus{
-    let status = Command::new("./get_ip.sh")
-        .status()
-        .await
-        .expect("[!!!]Script is fall. I'm sorry but maybe someone change a bash script.");
-    status
-}
-
-fn progress(step: &str) {
-    print!("\r\x1b[2K{}", step);
-    std::io::stdout().flush().unwrap();
 }
