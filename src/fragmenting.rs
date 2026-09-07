@@ -60,13 +60,10 @@ impl AsyncWrite for FragmentingStream {
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
- 
-        if !this.first_write_done && buf.len() > 1 {                                   //If this packet is the first one... 
-                                                                                      //We are changing the state of "first_write_done" to true
-                                                                                     //
-            let split_at = find_sni(buf).unwrap_or(buf.len() / 2);  //Split domain or if hapens mistakes half of bufer
-            let n = split_at.min(buf.len());                                //If somehow 1 piece more that all packet (It's error) then we              
-                                                                                 //                                          just return half of packet
+        if !this.first_write_done && buf.len() > 1 {       
+            let (split_at, _domain) = find_sni(buf).unwrap_or((buf.len() / 2, String::from("youtube.com")));                            
+                                                                                              
+            let n = split_at.min(buf.len());                                   
             match Pin::new(&mut this.inner).poll_write(cx, &buf[..n]) {// Sending that a piece
                 Poll::Ready(Ok(n)) => {
                     this.first_write_done = true;  

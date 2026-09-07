@@ -1,4 +1,4 @@
-pub fn find_sni(buf: &[u8]) -> Option<usize>{
+pub fn find_sni(buf: &[u8]) -> Option<(usize, String)>{
     let mut pos = 0usize;  // Create variable pos -> start index of byte whit a value 0 
     pos += 5;                    // 5 bytes --> TLS Record Header (Type, Version, Lenght)
     pos += 4;                   // 4 bytes --> Handshake header (handshake type, Handshake's lenght)
@@ -29,9 +29,11 @@ pub fn find_sni(buf: &[u8]) -> Option<usize>{
                 *buf.get(name_len_pos + 1)?
             ]) as usize;                                //Get lenght of server-name
             
-            let name_start = name_len_pos + 2; // Get first char of domain
-
-            return Some(name_start + name_len / 2); // Split domain
+            let name_start = name_len_pos + 2;        // Get first char of domain
+            let name_bytes = buf.get(name_start..name_start + name_len)?;
+            let domain = String::from_utf8(name_bytes.to_vec()).ok()?;
+            let split_pos = name_start + name_len / 2;
+            return Some((split_pos, domain)); // Split domain
         }
 
         if ext_len == 0 && ext_type == 0 {     //if it useless packet then just leave loop

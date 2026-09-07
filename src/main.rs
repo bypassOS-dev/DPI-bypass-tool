@@ -9,6 +9,7 @@ mod fragmenting;
 mod all_ip;
 mod capute_isn;
 mod help_function;
+mod net_filter_queue;
 use help_function::{progress, send_and_get, run_bash};
 use capute_isn::capute_isn;
 use all_ip::lookup_known_ip;
