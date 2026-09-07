@@ -35,3 +35,4 @@ pub fn progress(step: &str) {
     print!("\r\x1b[2K{}", step);
     std::io::stdout().flush().unwrap();
 }
+
