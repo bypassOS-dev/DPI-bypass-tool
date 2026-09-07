@@ -6,7 +6,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 //=======================================================
-mod sni_parser;
+pub mod sni_parser;
 mod fake_ttl;
 use sni_parser::find_sni;
 use fake_ttl::send_fake_ttl;

@@ -1,7 +1,8 @@
 use nfq::{Queue, Verdict};
 use pnet::packet::{Packet, ipv4::Ipv4Packet, tcp::TcpPacket};
+use crate::fragmenting::sni_parser::find_sni;
 
-fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
+pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
     let mut queue = Queue::open()?;
     queue.bind(0)?;
 
@@ -10,7 +11,7 @@ fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
         let payload = msg.get_payload();
 
         if let Some(ip_packet) = Ipv4Packet::new(payload) {
-                if let Some(tcp_packet) = TcpPacket::new(ip_packet.payload()) {
+            if let Some(tcp_packet) = TcpPacket::new(ip_packet.payload()) {
                 let tcp_payload = tcp_packet.payload();
                 println!(
                     "Packet: seq: {}, tcp payload lenght: {}",
@@ -19,6 +20,9 @@ fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
                 );
                 if tcp_payload.len() > 5 && tcp_payload[0] == 0x16 {
                     println!("This look like a TLS handshake packet!");
+                }
+                if let Some((split_pos, domain)) = find_sni(tcp_payload) {
+                    println!("Found SNI: {} (split at {})", domain, split_pos)
                 }
             };
         };
