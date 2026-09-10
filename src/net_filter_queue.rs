@@ -1,7 +1,7 @@
 use nfq::{Queue, Verdict};
 use pnet::packet::{Packet, ipv4::Ipv4Packet, tcp::TcpPacket};
 use crate::fragmenting::sni_parser::find_sni;
-
+use rand::{Rng, thread_rng};
 pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
     let mut queue = Queue::open()?;
     queue.bind(0)?;
@@ -22,7 +22,27 @@ pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
                     println!("This look like a TLS handshake packet!");
                 }
                 if let Some((split_pos, domain)) = find_sni(tcp_payload) {
-                    println!("Found SNI: {} (split at {})", domain, split_pos)
+                    println!("Found SNI: {} (split at {})", domain, split_pos);
+
+                    let mut rng = thread_rng();
+                    let trash = rng.gen_range(10..=30);
+
+                    let real_seq = tcp_packet.get_sequence();
+
+                    let junk: Vec<u8> = vec![0x41; trash];
+                    let mut packet1_payload = junk.clone();
+
+                    packet1_payload.extend_from_slice(&tcp_payload[..split_pos]);
+
+                    let packet1_seq = real_seq.wrapping_sub(trash as u32);
+
+                    let packet2_payload =  &tcp_payload[split_pos..];
+
+                    let packet2_seq = real_seq + split_pos as u32;
+
+                    println!("Packet 1: seq={}, len={}", packet1_seq, packet1_payload.len());
+                    println!("Packet 2: seq={}, len={}", packet2_seq, packet2_payload.len());
+
                 }
             };
         };

@@ -8,7 +8,7 @@ use tokio::process::Command;
 use crate::help_function::{progress, send_and_get, run_bash};
 use crate::capute_isn::capute_isn;
 use crate::all_ip::lookup_known_ip;
-use crate::fragmenting::FragmentingStream;
+//use crate::fragmenting::FragmentingStream;
 //===============================================================
 
 pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
@@ -89,7 +89,7 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     let stream = socket.connect(std::net::SocketAddr::V4(server_some)).await?;  
 
     progress("[14/] Geting sequence and acknowlegement...");
-    let (sequence, acknowlegement) = handle.await??;
+    let (_sequence, _acknowlegement) = handle.await??;
 
     progress("[15/18] Geting ip...");
     let ip_adrr = stream.local_addr()?.ip();
@@ -98,11 +98,11 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
         std::net::IpAddr::V6(_) => panic!("Ipv6 while is doesn't support!"),
     };
 
-    let my_ip = SocketAddrV4::new(my_ip, my_port);
+    let _my_ip = SocketAddrV4::new(my_ip, my_port);
 
     progress("[16/18] To waping our stream...");
     //Create a wrapper over stream
-    let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 9);
+    //let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 9);
 
     progress("[17/18] Runing Tls-handshake...");
     //Runing Tls HandShake
