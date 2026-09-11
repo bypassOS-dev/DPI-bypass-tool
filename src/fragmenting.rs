@@ -7,7 +7,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 //=======================================================
 pub mod sni_parser;
-mod fake_ttl;
+pub mod fake_ttl;
 use sni_parser::find_sni;
 use fake_ttl::send_fake_ttl;
 //======================================================

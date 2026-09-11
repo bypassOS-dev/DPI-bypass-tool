@@ -2,6 +2,8 @@ use nfq::{Queue, Verdict};
 use pnet::packet::{Packet, ipv4::Ipv4Packet, tcp::TcpPacket};
 use crate::fragmenting::sni_parser::find_sni;
 use rand::{Rng, thread_rng};
+use crate::fragmenting::fake_ttl::send_fake_ttl;
+use std::net::SocketAddrV4;
 
 pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
     // Create a queue:
@@ -47,17 +49,24 @@ pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
                     // Split posicion and damain
                     if let Some((split_pos, domain)) = find_sni(tcp_payload) {
                         println!("Found SNI: {} (split at {})", domain, split_pos);
-
+                        
+                        // Generate random value of junk data
                         let mut rng = thread_rng();
                         let trash = rng.gen_range(10..=30);
 
+                        // Recognize sequence number this packet
                         let real_seq = tcp_packet.get_sequence();
 
+                        // Create vector that will be populated 
+                        // letters "A". There will be our random num of "A"
                         let junk: Vec<u8> = vec![0x41; trash];
                         let mut packet1_payload = junk.clone();
 
+                        // We add a piece of real packet
+                        // to our junk (we gum up it in simple words)
                         packet1_payload.extend_from_slice(&tcp_payload[..split_pos]);
 
+                        // Calculate sequence number for our false packet
                         let packet1_seq = real_seq.wrapping_sub(trash as u32);
 
                         let packet2_payload =  &tcp_payload[split_pos..];
@@ -67,6 +76,12 @@ pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
                         println!("Packet 1: seq={}, len={}", packet1_seq, packet1_payload.len());
                         println!("Packet 2: seq={}, len={}", packet2_seq, packet2_payload.len());
 
+                        let my_ip = SocketAddrV4::new(ip_packet.get_source(), tcp_packet.get_source());
+                        let dst_ip = SocketAddrV4::new(ip_packet.get_destination(), tcp_packet.get_destination());
+                        let ack = tcp_packet.get_acknowledgement();
+
+                        send_fake_ttl(my_ip, dst_ip, packet1_seq, ack, 64, &packet1_payload)?;
+                        send_fake_ttl(my_ip, dst_ip, packet2_seq, ack, 64, packet2_payload)?;
                     }
                 }
                 
