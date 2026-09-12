@@ -5,7 +5,7 @@ use tokio_rustls::{TlsConnector};
 use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use tokio::process::Command;
 //===============================================================
-use crate::help_function::{progress, send_and_get, run_bash};
+use crate::{help_function::{progress, run_bash, send_and_get}, net_filter_queue::start_sniff};
 use crate::capute_isn::capute_isn;
 use crate::all_ip::lookup_known_ip;
 //use crate::fragmenting::FragmentingStream;
@@ -73,6 +73,11 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");                 // parsing string to Ipv4Addr type
     let server_some = SocketAddrV4::new(ip, 443);    
 
+    let _sniff_handle = tokio::task::spawn_blocking(move || {
+        start_sniff()
+    });
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    
     let status = Command::new("iptables")
         .arg("-A")
         .arg("OUTPUT").arg("-p")

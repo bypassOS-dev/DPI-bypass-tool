@@ -11,7 +11,7 @@ pub fn send_fake_ttl(
     ack: u32,
     ttl: u8,
     random_text: &[u8]
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (mut tx, _) = transport_channel(2048, Layer3(IpNextHeaderProtocols::Tcp))?; // Open a special communication channel  
 
         //Calculate total lenght of TCP-segments in bytes:

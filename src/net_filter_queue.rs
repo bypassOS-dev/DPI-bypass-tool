@@ -5,7 +5,7 @@ use rand::{Rng, thread_rng};
 use crate::fragmenting::fake_ttl::send_fake_ttl;
 use std::net::SocketAddrV4;
 
-pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
+pub fn start_sniff() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
     // Create a queue:
     // The programm allocates memory and resourses for "queue" object
     // throught witch  will be sends or gets mesages 
