@@ -82,6 +82,10 @@ pub fn _start_sniff() -> Result<(), Box<dyn std::error::Error>>{
 
                         send_fake_ttl(my_ip, dst_ip, packet1_seq, ack, 64, &packet1_payload)?;
                         send_fake_ttl(my_ip, dst_ip, packet2_seq, ack, 64, packet2_payload)?;
+
+                        msg.set_verdict(Verdict::Drop);
+                        queue.verdict(msg)?;
+                        continue;
                     }
                 }
                 
