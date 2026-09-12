@@ -51,7 +51,7 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     let connector = TlsConnector::from(Arc::new(config));
 
     progress("[5/18] To seting domain...");
-    let domain_str: &str = "youtube.com";    //just example
+     let domain_str: &str = "youtube.com";    //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
@@ -71,27 +71,44 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     progress("[9/18] Finding ip in fresh list...");
     let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
     let ip: Ipv4Addr = ip_str.parse().expect("Invalid IP format in file");                 // parsing string to Ipv4Addr type
-    let server_some = SocketAddrV4::new(ip, 443);           
+    let server_some = SocketAddrV4::new(ip, 443);    
+
+    let status = Command::new("iptables")
+        .arg("-A")
+        .arg("OUTPUT").arg("-p")
+        .arg("tcp").arg("-d")
+        .arg(ip_str)
+        .arg("--dport").arg("443")
+        .arg("-j").arg("NFQUEUE")
+        .arg("--queue-num").arg("0")
+        .status()
+        .await.expect("Executing error");
+
+    if status.success() {
+        progress("[10/19] Successfully end of start NFQUEUE!");
+    } else {
+        panic!("NFQUEUE doesn't work!");
+    }
     
-    progress("[10/18] Runing additional stream...");
+    progress("[11/19] Runing additional stream...");
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
 
     let handle = tokio::task::spawn_blocking(move || {
-        progress("[11/18] Startint to sniff a packets");
+        progress("[12/19] Startint to sniff a packets");
         // Start to sniffing packets for find seq and ack
         capute_isn(server_some, my_port, tx)
     });
     rx.await.unwrap();
-    progress("[12/18] We have found the SYN-ACK!");
-    progress("[13/18] Connecting to server...");
+    progress("[13/19] We have found the SYN-ACK!");
+    progress("[14/19] Connecting to server...");
     //just connect
     let stream = socket.connect(std::net::SocketAddr::V4(server_some)).await?;  
 
-    progress("[14/] Geting sequence and acknowlegement...");
+    progress("[15/19] Geting sequence and acknowlegement...");
     let (_sequence, _acknowlegement) = handle.await??;
 
-    progress("[15/18] Geting ip...");
+    progress("[16/19] Geting ip...");
     let ip_adrr = stream.local_addr()?.ip();
     let my_ip = match ip_adrr {
         std::net::IpAddr::V4(addr) => addr,
@@ -100,15 +117,15 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
 
     let _my_ip = SocketAddrV4::new(my_ip, my_port);
 
-    progress("[16/18] To waping our stream...");
+    progress("[17/19] To waping our stream...");
     //Create a wrapper over stream
     //let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 9);
 
-    progress("[17/18] Runing Tls-handshake...");
+    progress("[18/19] Runing Tls-handshake...");
     //Runing Tls HandShake
     let mut tls_stream = connector.connect(domain, stream).await?;
 
-    progress("[18/18] To preparing the https request");
+    progress("[19/19] To preparing the https request");
     let greet = b"GET / HTTP/1.1\r\n\
     Host: youtube.com\r\n\
     User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0\r\n\
