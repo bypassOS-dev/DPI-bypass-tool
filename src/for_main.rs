@@ -148,9 +148,8 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
             _ = tokio::signal::ctrl_c() => {    //graceful shut down
                 println!("\nShutting down...");
                 tls_stream.shutdown().await?;
-                break;
+                std::process::exit(0);
             }
         }
     }
-    Ok(())
 }

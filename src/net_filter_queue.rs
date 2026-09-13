@@ -49,7 +49,7 @@ pub fn start_sniff() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let trash = rng.gen_range(10..=30);
 
                             // Recognize sequence number this packet
-                            let real_seq = tcp_packet.get_sequence();
+                            let real_seq = *pending_seq;
 
                             // Create vector that will be populated
                             // letters "A". There will be our random num of "A"
@@ -58,12 +58,12 @@ pub fn start_sniff() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                             // We add a piece of real packet
                             // to our junk (we gum up it in simple words)
-                            packet1_payload.extend_from_slice(&tcp_payload[..split_pos]);
+                            packet1_payload.extend_from_slice(&pending_data[..split_pos]);
 
                             // Calculate sequence number for our false packet
                             let packet1_seq = real_seq.wrapping_sub(trash as u32);
 
-                            let packet2_payload = &tcp_payload[split_pos..];
+                            let packet2_payload = &pending_data[split_pos..];
 
                             let packet2_seq = real_seq + split_pos as u32;
 
