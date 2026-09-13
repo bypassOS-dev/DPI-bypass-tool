@@ -19,15 +19,20 @@ rm -f "$LIST_FILE" "$LIST_IP"
 curl -s -o "$LIST_FILE" "$LIST_URL"
 
 while read -r domain; do
+    domain=$(echo "$domain" | tr -d '[:space:]') 
     if [[ -z "$domain" || "$domain" == .* ]]; then
         continue
     fi
-    (
-        ip=$(dig +time=2 +tries=1 +short "$domain" | head -n1)
-        if [ -n "$ip" ]; then
-            echo "$domain = $ip" >> "$LIST_IP"
-        fi
-    ) &
+    if [[ "$domain" == "youtube.com" ]]; then
+        echo "DEBUG: processing youtube.com, trying dig..." >&2
+    fi
+    ip=$(dig +time=4 +tries=2 +short "$domain" | head -n1)
+    if [[ "$domain" == "youtube.com" ]]; then
+        echo "DEBUG: got ip='$ip'" >&2
+    fi
+    if [ -n "$ip" ]; then
+        echo "$domain = $ip" >> "$LIST_IP"
+    fi
 done < "$LIST_FILE"
 
 wait
