@@ -1,5 +1,5 @@
-use crate::fragmenting::fake_ttl::send_fake_ttl;
-use crate::fragmenting::sni_parser::find_sni;
+use crate::fake_ttl::send_fake_ttl;
+use crate::sni_parser::find_sni;
 use nfq::{Queue, Verdict};
 use pnet::packet::{Packet, ipv4::Ipv4Packet, tcp::TcpPacket};
 use rand::{Rng, thread_rng};

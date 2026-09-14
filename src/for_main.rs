@@ -6,9 +6,7 @@ use std::{net::{Ipv4Addr, SocketAddrV4}, sync::Arc};
 use tokio::process::Command;
 //===============================================================
 use crate::{help_function::{progress, run_bash, send_and_get}, net_filter_queue::start_sniff};
-use crate::capute_isn::capute_isn;
 use crate::all_ip::lookup_known_ip;
-//use crate::fragmenting::FragmentingStream;
 //===============================================================
 
 pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
@@ -51,7 +49,7 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     let connector = TlsConnector::from(Arc::new(config));
 
     progress("[5/18] To seting domain...");
-     let domain_str: &str = "youtube.com";    //just example
+    let domain_str: &str = "youtube.com";    //just example
 
     //Get type "ServerName" and give owned to "domain"
     let domain = ServerName::try_from(domain_str)?.to_owned();
@@ -63,10 +61,6 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     progress("[7/18] Reserving random port...");
     // Ask OS reserve random port
     socket.bind("0.0.0.0:0".parse()?)?;
-
-    progress("[8/18] Geting port...");
-    // Get port
-    let my_port = socket.local_addr()?.port();
 
     progress("[9/18] Finding ip in fresh list...");
     let ip_str = lookup_known_ip(domain_str).expect("This site is not in data");    //finding this domain in "knows_ip.txt" and return IP-addr
@@ -95,36 +89,11 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
         panic!("NFQUEUE doesn't work!");
     }
     
-    progress("[11/19] Runing additional stream...");
-
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-
-    let handle = tokio::task::spawn_blocking(move || {
-        progress("[12/19] Startint to sniff a packets");
-        // Start to sniffing packets for find seq and ack
-        capute_isn(server_some, my_port, tx)
-    });
-    rx.await.unwrap();
-    progress("[13/19] We have found the SYN-ACK!");
     progress("[14/19] Connecting to server...");
     //just connect
-    let stream = socket.connect(std::net::SocketAddr::V4(server_some)).await?;  
-
-    progress("[15/19] Geting sequence and acknowlegement...");
-    let (_sequence, _acknowlegement) = handle.await??;
+    let stream = socket.connect(std::net::SocketAddr::V4(server_some)).await?;
 
     progress("[16/19] Geting ip...");
-    let ip_adrr = stream.local_addr()?.ip();
-    let my_ip = match ip_adrr {
-        std::net::IpAddr::V4(addr) => addr,
-        std::net::IpAddr::V6(_) => panic!("Ipv6 while is doesn't support!"),
-    };
-
-    let _my_ip = SocketAddrV4::new(my_ip, my_port);
-
-    progress("[17/19] To waping our stream...");
-    //Create a wrapper over stream
-    //let stream = FragmentingStream::new(stream, my_ip, server_some, sequence, acknowlegement, 9);
 
     progress("[18/19] Runing Tls-handshake...");
     //Runing Tls HandShake
@@ -138,7 +107,7 @@ pub async fn like_main()  -> Result<(), Box<dyn std::error::Error + Send + Sync>
     Accept-Language: en-US,en;q=0.5\r\n\
     Accept-Encoding: identity\r\n\
     Connection: close\r\n\r\n";
-    let mut buffer = [0u8; 1024];
+    let mut buffer = [  0u8; 1024];
 
     loop {
         tokio::select! {
